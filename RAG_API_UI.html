@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RAG Chat</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
+    .chat-box { max-width: 600px; margin: auto; background: white; padding: 1rem; border-radius: 10px; }
+    .msg { margin: 0.5rem 0; }
+    .user { color: blue; }
+    .bot { color: green; }
+    input, button { padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="chat-box">
+    <h2>Chat with your Docs</h2>
+    <input type="file" id="fileInput" multiple><br><br>
+
+    <div id="chat"></div>
+
+    <form id="chatForm">
+      <input type="text" id="question" placeholder="Ask something..." required>
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const ngrokUrl = "https://f2ff320c0f65.ngrok-free.app"; 
+    const chatBox = document.getElementById('chat');
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('question');
+    const fileInput = document.getElementById('fileInput');
+
+    // Handle sending a question
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const question = input.value.trim();
+      if (!question) return;
+
+      chatBox.innerHTML += `<div class="msg user">You: ${question}</div>`;
+      input.value = "";
+
+      try {
+        const res = await fetch(`${ngrokUrl}/query`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `question=${encodeURIComponent(question)}`
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        chatBox.innerHTML += `<div class="msg bot">Bot: ${data.answer}</div>`;
+      } catch (e) {
+        let msg = e.message;
+        if (msg === "Failed to fetch") {
+          msg = "Could not connect to the server.";
+        }
+        chatBox.innerHTML += `<div class="msg bot"> Error: ${msg}</div>`;
+      }
+    });
+
+    // Handle file upload
+    fileInput.addEventListener('change', async () => {
+      const files = fileInput.files;
+      const formData = new FormData();
+      for (let file of files) formData.append("files", file);
+
+      try {
+        const res = await fetch(`${ngrokUrl}/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        chatBox.innerHTML += `<div class="msg bot">${data.message}</div>`;
+      } catch (e) {
+        let msg = e.message;
+        if (msg === "Failed to fetch") {
+          msg = "Could not connect to the server..";
+        }
+        chatBox.innerHTML += `<div class="msg bot"> Upload Error: ${msg}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
